@@ -30,6 +30,7 @@ RUN apt-get update && \
     git \
     gnupg2 \
     gpg-agent \
+    libnss3-tools \
     rsync \
     sudo \
     unzip \
@@ -37,17 +38,30 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf  /var/lib/apt/lists/*
 
+
+COPY embargo/setup-certs.sh /tmp/setup-certs.sh
+
+RUN /tmp/setup-certs.sh && rm -rf /tmp/setup-certs.sh
+
 ARG DEVICE
 
-RUN no_proxy=$no_proxy wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+RUN no_proxy=$no_proxy wget -qO - https://repositories.gfxs.intel.com/repositories/intel-graphics.key 
+
+RUN no_proxy=$no_proxy wget -qO - https://repositories.gfxs.intel.com/repositories/intel-graphics.key | \
     gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-RUN printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy %s\n' "$DEVICE" | \
+RUN printf 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.gfxs.intel.com/repositories/ubuntu jammy %s\n' "$DEVICE" | \
     tee  /etc/apt/sources.list.d/intel.gpu.jammy.list
 
 ARG ICD_VER
 ARG LEVEL_ZERO_GPU_VER
 ARG LEVEL_ZERO_VER
 ARG LEVEL_ZERO_DEV_VER
+
+RUN apt-get update && \
+    apt list -a intel-opencl-icd && \
+    apt list -a intel-level-zero-gpu && \
+    apt list -a level-zero && \
+    apt list -a level-zero-dev
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --fix-missing \
@@ -66,6 +80,10 @@ RUN no_proxy=$no_proxy wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-P
 ARG DPCPP_VER
 ARG MKL_VER
 ARG CCL_VER="N/A"
+
+RUN apt-get update && \
+    apt list -a intel-oneapi-runtime-dpcpp-cpp && \
+    apt list -a intel-oneapi-runtime-mkl
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --fix-missing \

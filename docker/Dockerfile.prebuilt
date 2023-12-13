@@ -44,13 +44,18 @@ RUN /tmp/setup-certs.sh && rm -rf /tmp/setup-certs.sh
 
 RUN wget -qO - https://repositories.gfxs.intel.com/repositories/intel-graphics.key | \
     gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-RUN echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.gfxs.intel.com/repositories/ubuntu jammy unified' | \
-    tee /etc/apt/sources.list.d/intel-gpu-jammy.list
 
-ARG ICD_VER
-ARG LEVEL_ZERO_GPU_VER
-ARG LEVEL_ZERO_VER
-ARG LEVEL_ZERO_DEV_VER
+# Variables to define Intel-Internal Gfx components to use
+ARG IGFX_REPO_URL=https://repositories.gfxs.intel.com/repositories/ubuntu
+ARG IGFX_VERSION=
+ARG IGFX_COMPONENT=unified
+
+RUN local_key=/usr/share/keyrings/intel-graphics.gpg && \
+    igfx_path=jammy && \
+    if [ ! -z $IGFX_VERSION ]; then igfx_path=$igfx_path/$IGFX_VERSION; fi && \
+    source_string=$(echo $IGFX_REPO_URL $igfx_path $IGFX_COMPONENT) && \
+    echo "deb [arch=amd64 signed-by=$(echo $local_key)]  $source_string" | \
+    tee /etc/apt/sources.list.d/intel-gpu-jammy.list
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --fix-missing \
@@ -59,14 +64,16 @@ RUN apt-get update && \
     level-zero \
     level-zero-dev
 
-RUN touch /opt/DriverPackages.log && \
+RUN sudo rm -f /opt/DriverPackages.log && \
+    echo "IGFX_REPO_URL=$IGFX_REPO_URL" >> /opt/DriverPackages.log && \
+    echo "IGFX_VERSION=$IGFX_VERSION" >> /opt/DriverPackages.log && \
+    echo "IGFX_COMPONENT=$IGFX_COMPONENT" >> /opt/DriverPackages.log && \
     apt list -a intel-opencl-icd | tee -a /opt/DriverPackages.log && \
     apt list -a intel-level-zero-gpu | tee -a /opt/DriverPackages.log && \
     apt list -a level-zero | tee -a /opt/DriverPackages.log && \
     apt list -a level-zero-dev | tee -a /opt/DriverPackages.log  && \
     apt-get clean && \
     rm -rf  /var/lib/apt/lists/*
-
 
 RUN no_proxy=$no_proxy wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
    | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && \

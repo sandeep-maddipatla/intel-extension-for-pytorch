@@ -1,6 +1,5 @@
-
-
 #!/bin/bash
+DRIVER_VERSION=${1:-}
 
 if [[ ${IMAGE_NAME} != "" ]]; then
     docker build --build-arg http_proxy=$http_proxy \
@@ -24,6 +23,7 @@ if [[ ${IMAGE_NAME} != "" ]]; then
                  --build-arg CCL_VER=2021.11.1-6 \
                  --build-arg ONECCL_BIND_PT_VERSION=2.1.100 \
                  --build-arg ONECCL_BIND_PT_WHL_URL=https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ \
+                 --build-arg IGFX_VERSION=${DRIVER_VERSION} \
                  -t ${IMAGE_NAME} \
                  -f Dockerfile.prebuilt .
 fi

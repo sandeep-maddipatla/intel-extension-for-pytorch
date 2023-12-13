@@ -25,6 +25,7 @@ RUN apt-get update && \
     apt-utils \
     build-essential \
     ca-certificates \
+    libnss3-tools \
     clinfo \
     curl \
     git \
@@ -37,9 +38,13 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf  /var/lib/apt/lists/*
 
-RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+# Install certs for internal version of components
+COPY assets/embargo/setup-certs.sh /tmp/
+RUN /tmp/setup-certs.sh && rm -rf /tmp/setup-certs.sh
+
+RUN wget -qO - https://repositories.gfxs.intel.com/repositories/intel-graphics.key | \
     gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
+RUN echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.gfxs.intel.com/repositories/ubuntu jammy unified' | \
     tee /etc/apt/sources.list.d/intel-gpu-jammy.list
 
 ARG ICD_VER
@@ -49,12 +54,19 @@ ARG LEVEL_ZERO_DEV_VER
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --fix-missing \
-    intel-opencl-icd=${ICD_VER} \
-    intel-level-zero-gpu=${LEVEL_ZERO_GPU_VER} \
-    level-zero=${LEVEL_ZERO_VER} \
-    level-zero-dev=${LEVEL_ZERO_DEV_VER} && \
+    intel-opencl-icd \
+    intel-level-zero-gpu \
+    level-zero \
+    level-zero-dev
+
+RUN touch /opt/DriverPackages.log && \
+    apt list -a intel-opencl-icd | tee -a /opt/DriverPackages.log && \
+    apt list -a intel-level-zero-gpu | tee -a /opt/DriverPackages.log && \
+    apt list -a level-zero | tee -a /opt/DriverPackages.log && \
+    apt list -a level-zero-dev | tee -a /opt/DriverPackages.log  && \
     apt-get clean && \
     rm -rf  /var/lib/apt/lists/*
+
 
 RUN no_proxy=$no_proxy wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
    | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && \

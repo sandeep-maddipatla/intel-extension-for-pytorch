@@ -25,9 +25,16 @@ RUN apt update && \
     pkg-config \
     software-properties-common \
     gnupg \
+    unzip \
+    libnss3-tools \
     gpg-agent
+
+COPY docker/assets/embargo/setup-certs.sh /tmp/
+RUN /tmp/setup-certs.sh && rm -rf /tmp/setup-certs.sh
+
 COPY ./tools/basekit_driver_install_helper.sh .
-RUN bash ./basekit_driver_install_helper.sh driver
+ARG IGFX_VERSION=
+RUN bash ./basekit_driver_install_helper.sh driver $IGFX_VERSION
 
 ARG GID_RENDER=109
 RUN useradd -m -s /bin/bash ubuntu && \
@@ -44,6 +51,7 @@ RUN curl -fsSL -v -o miniconda.sh -O https://repo.anaconda.com/miniconda/Minicon
 
 FROM base AS dev
 RUN bash /basekit_driver_install_helper.sh dev
+
 COPY --chown=ubuntu:ubuntu . ./intel-extension-for-pytorch/
 RUN cp ./intel-extension-for-pytorch/scripts/compile_bundle.sh ./ && \
     sed -i "s/VER_IPEX=.*/VER_IPEX=/" compile_bundle.sh

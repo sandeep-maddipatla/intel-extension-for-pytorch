@@ -109,6 +109,8 @@ cd ${BASEFOLDER}
 # Checkout individual components
 if [ ! -d intel-extension-for-pytorch ]; then
     git clone https://github.com/intel/intel-extension-for-pytorch.git
+else
+    echo Found ipex locally.
 fi
 cd intel-extension-for-pytorch
 if [ ! -z ${VER_IPEX} ]; then
@@ -117,6 +119,8 @@ if [ ! -z ${VER_IPEX} ]; then
     git checkout main > /dev/null
     git pull > /dev/null
     git checkout ${VER_IPEX}
+else
+    echo VER_IPEX=${VER_IPEX} specified.
 fi
 git submodule sync
 git submodule update --init --recursive

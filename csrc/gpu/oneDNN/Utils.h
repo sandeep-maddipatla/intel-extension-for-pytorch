@@ -640,17 +640,7 @@ static inline int get_memory_layout_for_conv(
     return MEMORY_LAYOUT_FOR_CONV::ChannelsLast;
   }
 
-  // inference workloads on ATSM platform, the conv will use blocked format
-  // used double support to distinguish is atsm or not
-  auto suggest_block_format = !dpcppSupportFP64() // on ATSM platform
-      && (c10::InferenceMode::is_enabled() ||
-          !at::GradMode::is_enabled()); // for inference workload
-  if (suggest_block_format) {
-    // suggest blocked
-    return MEMORY_LAYOUT_FOR_CONV::Blocked;
-  }
-
-  // suggest channels_last
+  // suggest channels_first
   return MEMORY_LAYOUT_FOR_CONV::ChannelsFirst;
 }
 

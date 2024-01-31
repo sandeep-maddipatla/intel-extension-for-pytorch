@@ -57,44 +57,6 @@ for APP in python git patch pkg-config nproc bzip2; do
     command -v $APP > /dev/null || (echo "Error: Command \"${APP}\" not found." ; exit 4)
 done
 
-## Check existance of required libs
-#if [ $((${MODE} & 0x02)) -ne 0 ]; then
-#    for LIB_NAME in libpng libjpeg; do
-#        pkg-config --exists $LIB_NAME > /dev/null || (echo "Error: \"${LIB_NAME}\" not found in pkg-config." ; exit 5)
-#    done
-#fi
-
-#function ver_compare() {
-#    VER_MAJOR_CUR=$(echo $1 | cut -d "." -f 1)
-#    VER_MINOR_CUR=$(echo $1 | cut -d "." -f 2)
-#    VER_PATCH_CUR=$(echo $1 | cut -d "." -f 3)
-#    VER_MAJOR_REQ=$(echo $2 | cut -d "." -f 1)
-#    VER_MINOR_REQ=$(echo $2 | cut -d "." -f 2)
-#    VER_PATCH_REQ=$(echo $2 | cut -d "." -f 3)
-#    RET=0
-#    if [[ ${VER_MAJOR_CUR} -ge ${VER_MAJOR_REQ} ]]; then
-#        RET=1
-#    else
-#        if [[ ${VER_MAJOR_CUR} -eq ${VER_MAJOR_REQ} ]] &&
-#           [[ ${VER_MINOR_CUR} -ge ${VER_MINOR_REQ} ]]; then
-#            RET=2
-#        else
-#            if [[ ${VER_MAJOR_CUR} -eq ${VER_MAJOR_REQ} ]] &&
-#               [[ ${VER_MINOR_CUR} -eq ${VER_MINOR_REQ} ]] &&
-#               [[ ${VER_PATCH_CUR} -ge ${VER_PATCH_REQ} ]]; then
-#                RET=3
-#            fi
-#        fi
-#    fi
-#    echo ${RET}
-#}
-#VER_COMP=$(ver_compare $(gcc -dumpfullversion) ${VER_GCC})
-#if [ ${VER_COMP} -ne 0 ]; then
-#    echo -e '\a'
-#    echo "Error: GCC version cannot be equal to or newer than ${VER_GCC}."
-#    echo "       Found GCC version $(gcc -dumpfullversion)"
-#    exit 6
-#fi
 
 # set number of compile processes, if not already defined
 MAX_JOBS_VAR=$(nproc)

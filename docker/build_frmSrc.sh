@@ -27,5 +27,5 @@ if [[ ${IMAGE_NAME} != "" ]]; then
                  --build-arg ONECCL_BIND_PT_WHL_URL=https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ \
                  --build-arg IGFX_VERSION=${DRIVER_VERSION} \
                  -t ${IMAGE_NAME} \
-                 -f docker/Dockerfile.compile .
+                 -f docker/Dockerfile.compile.new .
 fi

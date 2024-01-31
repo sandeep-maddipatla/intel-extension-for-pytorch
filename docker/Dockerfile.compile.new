@@ -1,0 +1,173 @@
+# NOTE: To build this you will need a docker version >= 19.03 and DOCKER_BUILDKIT=1
+#
+#       If you do not use buildkit you are not going to have a good time
+#
+#       For reference:
+#           https://docs.docker.com/develop/develop-images/build_enhancements/
+
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE} AS base
+RUN if [ -f /etc/apt/apt.conf.d/proxy.conf ]; then rm /etc/apt/apt.conf.d/proxy.conf; fi && \
+    if [ ! -z ${HTTP_PROXY} ]; then echo "Acquire::http::Proxy \"${HTTP_PROXY}\";" >> /etc/apt/apt.conf.d/proxy.conf; fi && \
+    if [ ! -z ${HTTPS_PROXY} ]; then echo "Acquire::http::Proxy \"${HTTPS_PROXY}\";" >> /etc/apt/apt.conf.d/proxy.conf; fi
+RUN apt update && \
+    apt full-upgrade -y && \
+    DEBIAN_FRONTEND=noninteractive apt install --no-install-recommends -y \
+    sudo \
+    git \
+    wget \
+    curl \
+    vim \
+    patch \
+    gcc \
+    g++ \
+    make \
+    pkg-config \
+    software-properties-common \
+    gnupg \
+    gpg-agent \
+    gdb \
+    python3-dbg
+
+COPY ./tools/basekit_driver_install_helper.sh .
+RUN bash ./basekit_driver_install_helper.sh driver
+
+ARG GID_RENDER=109
+RUN useradd -m -s /bin/bash ubuntu && \
+    echo 'ubuntu ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && \
+    groupadd -g $GID_RENDER render && \
+    usermod -a -G video,render ubuntu
+USER ubuntu
+WORKDIR /home/ubuntu
+
+RUN curl -fsSL -v -o miniconda.sh -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
+    bash miniconda.sh -b -p ./miniconda3 && \
+    rm miniconda.sh && \
+    echo "\nsource ~/miniconda3/bin/activate" >> ./.bashrc
+
+FROM base AS dev
+RUN bash /basekit_driver_install_helper.sh dev
+COPY --chown=ubuntu:ubuntu . ./intel-extension-for-pytorch/
+
+#Install python and Conda dependencies
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
+    python -m pip uninstall -y torch torchvision torchaudio intel-extension-for-pytorch && \
+    python -m pip install cmake ninja Pillow pyyaml  && \
+    conda install -y libpng libjpeg-turbo -c conda-forge && \
+    conda install -y gcc==12.3.0 gxx==12.3.0 cxx-compiler -c conda-forge
+
+
+### #Clone LLVM and build
+ARG VER_LLVM_CUSTOM=
+RUN VER_LLVM_DEFAULT=llvmorg-$(python tools/yaml_utils.py -f dependency_version.yml -d llvm -k version) && \
+    VER_LLVM=${$VER_LLVM_CUSTOM:-$VER_LLVM_DEFAULT} && \
+    echo VER_LLVM=$VER_LLVM  && \
+    git clone https://github.com/llvm/llvm-project.git && \
+    cd llvm-project && \
+    git checkout $VER_LLVM && \
+    git submodule sync && \
+    git submodule update --init --recursive
+
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
+    LLVM_ROOT=$(pwd)/llvm-release && \
+    mkdir -p llvm-project/build && \
+    cd llvm-project/build && \
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-D_GLIBCXX_USE_CXX11_ABI=1" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF ../llvm && \
+    cmake --build . -j $(nproc) && \
+    cmake -DCMAKE_INSTALL_PREFIX=${LLVM_ROOT} -P cmake_install.cmake && \
+    ln -s ${LLVM_ROOT}/bin/llvm-config ${LLVM_ROOT}/bin/llvm-config-13
+
+#Make LLVM available in Container path and library paths
+ENV PATH=$(pwd)/llvm-release/bin:$PATH
+ENV LD_LIBRARY_PATH=$(pwd)/llvm-release/lib:$LD_LIBRARY_PATH
+
+### Clone Pytorch, Apply IPEX-specific patches (from this repo!)
+RUN VER_TORCH=$(python tools/yaml_utils.py -f dependency_version.yml -d pytorch -k commit) && \
+    git clone https://github.com/pytorch/pytorch.git && \
+    cd pytorch && \
+    git checkout $VER_TORCH && \
+    git submodule sync && \
+    git submodule update --init --recursive && \
+    git apply ../intel-extension-for-pytorch/torch_patches/*.patch && \
+    echo ${VER_TORCH:1}a0 > version.txt
+
+### Build Pytorch
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
+    cd pytorch && \
+    python -m pip install -r requirements.txt && \
+    python -m pip install mkl-static mkl-include && \
+    export USE_STATIC_MKL=1 && \
+    export _GLIBCXX_USE_CXX11_ABI=1 && \
+    export USE_NUMA=0 && \
+    export USE_CUDA=0 && \
+    python setup.py clean && \
+    python setup.py bdist_wheel 2>&1 | tee build.log && \
+    python -m pip uninstall -y mkl-static mkl-include
+
+### Clone and build Pytorch audio and vision
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
+    VER_TORCHVISION=$(python tools/yaml_utils.py -f dependency_version.yml -d torchvision -k commit) && \
+    git clone https://github.com/pytorch/vision.git && \
+    cd vision && \
+    git checkout $VER_TORCHVISION && \
+    git submodule sync && \
+    git submodule update --init --recursive && \
+    python -m pip install -r requirements.txt && \
+    python setup.py clean && \
+    python setup.py bdist_wheel 2>&1 | tee build.log
+
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
+    VER_TORCHAUDIO=$(python tools/yaml_utils.py -f dependency_version.yml -d torchaudio -k commit) && \
+    git clone https://github.com/pytorch/audio.git && \
+    cd audio && \
+    git checkout $VER_TORCHAUDIO && \
+    git submodule sync && \
+    git submodule update --init --recursive && \
+    python -m pip install -r requirements.txt && \
+    python setup.py clean && \
+    python setup.py bdist_wheel 2>&1 | tee build.log
+
+
+### Build IPEX
+ARG AOT_OPTIONS=pvc,ats-m150
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
+    cd intel-extension-for-pytorch && \
+    source /opt/intel/oneapi/compiler/latest/env/vars.sh && \
+    source /opt/intel/oneapi/mkl/latest/env/vars.sh && \
+    export USE_AOT_DEVLIST=$AOT_OPTIONS && \
+    export USE_LLVM=$(pwd)/../llvm-release && \
+    export PATH=$USE_LLVM/bin:$PATH && \
+    export LLVM_DIR=${USE_LLVM}/lib/cmake/llvm && \
+    export DNNL_GRAPH_BUILD_COMPILER_BACKEND=1 && \
+    export IPEX_GPU_EXTRA_BUILD_OPTION="--gcc-install-dir=${CONDA_PREFIX}/lib/gcc/x86_64-conda-linux-gnu/12.3.0 -fuse-ld=lld -lrt -lpthread" && \
+    python -m pip install -r requirements.txt && \
+    python setup.py clean && \
+    python setup.py bdist_wheel 2>&1 | tee build.log
+
+### Capture wheel files for deployment
+RUN mkdir wheels && \
+    cp pytorch/dist/*.whl vision/dist/*.whl audio/dist/*.whl intel-extension-for-pytorch/dist/*.whl ./wheels
+
+FROM base AS deploy
+RUN bash /basekit_driver_install_helper.sh runtime && \
+    sudo apt clean && \
+    sudo rm -rf /var/lib/apt/lists/* && \
+    if [ -f /etc/apt/apt.conf.d/proxy.conf ]; then sudo rm /etc/apt/apt.conf.d/proxy.conf; fi && \
+    sudo rm /basekit_driver_install_helper.sh
+COPY --from=dev --chown=ubuntu:ubuntu /home/ubuntu/wheels ./wheels
+COPY --from=dev --chown=ubuntu:ubuntu /home/ubuntu/intel-extension-for-pytorch/tools/get_libstdcpp_lib.sh .
+RUN . ./miniconda3/bin/activate && \
+    conda create -y -n py310 python=3.10 && conda activate py310 && \
+    conda install -y libstdcxx-ng=12 libpng libjpeg-turbo -c conda-forge && \
+    python -m pip install ./wheels/*.whl && \
+    python -m pip cache purge && \
+    conda clean -a -y && \
+    rm -rf ./wheels && \
+    echo "conda activate py310" >> ./.bashrc && \
+    ldpreload=$(bash get_libstdcpp_lib.sh) && echo "export LD_PRELOAD=${ldpreload}" >> ./.bashrc && rm get_libstdcpp_lib.sh

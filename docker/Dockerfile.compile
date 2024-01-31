@@ -52,7 +52,7 @@ RUN . ./miniconda3/bin/activate && \
     bash compile_bundle.sh /opt/intel/oneapi/compiler/latest /opt/intel/oneapi/mkl/latest pvc,ats-m150,acm-g11 && \
     mkdir wheels && cp pytorch/dist/*.whl vision/dist/*.whl audio/dist/*.whl intel-extension-for-pytorch/dist/*.whl ./wheels
 
-RUN apt update && DEBIAN_FRONTEND=noninteractive apt install --no-install-recommends -y gdb python-dbg
+RUN sudo -E apt update && DEBIAN_FRONTEND=noninteractive sudo -E apt install --no-install-recommends -y gdb python-dbg
 
 FROM base AS deploy
 RUN bash /basekit_driver_install_helper.sh runtime && \

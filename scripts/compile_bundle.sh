@@ -283,7 +283,7 @@ python setup.py clean
 if [ -d dist ]; then
     rm -rf dist
 fi
-REL_WITH_DEB_INFO=1 python setup.py bdist_wheel 2>&1 | tee build.log
+python setup.py bdist_wheel 2>&1 | tee build.log
 unset IPEX_GPU_EXTRA_BUILD_OPTION
 unset DNNL_GRAPH_BUILD_COMPILER_BACKEND
 unset LLVM_DIR

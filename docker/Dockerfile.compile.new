@@ -47,22 +47,19 @@ RUN curl -fsSL -v -o miniconda.sh -O https://repo.anaconda.com/miniconda/Minicon
 
 FROM base AS dev
 RUN bash /basekit_driver_install_helper.sh dev
-COPY --chown=ubuntu:ubuntu . ./intel-extension-for-pytorch/
+COPY --chown=ubuntu:ubuntu tools ./tools
+COPY --chown=ubuntu:ubuntu dependency_version.yml ./tools/dependency_version.yml
 
 #Install python and Conda dependencies
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
     python -m pip uninstall -y torch torchvision torchaudio intel-extension-for-pytorch && \
     python -m pip install cmake ninja Pillow pyyaml  && \
     conda install -y libpng libjpeg-turbo -c conda-forge && \
     conda install -y gcc==12.3.0 gxx==12.3.0 cxx-compiler -c conda-forge
 
-
 ### #Clone LLVM and build
-ARG VER_LLVM_CUSTOM=
-RUN VER_LLVM_DEFAULT=llvmorg-$(python tools/yaml_utils.py -f dependency_version.yml -d llvm -k version) && \
-    VER_LLVM=${$VER_LLVM_CUSTOM:-$VER_LLVM_DEFAULT} && \
-    echo VER_LLVM=$VER_LLVM  && \
+RUN . ./miniconda3/bin/activate && \
+    VER_LLVM_=llvmorg-$(python tools/yaml_utils.py -f tools/dependency_version.yml -d llvm -k version) && \
     git clone https://github.com/llvm/llvm-project.git && \
     cd llvm-project && \
     git checkout $VER_LLVM && \
@@ -70,7 +67,6 @@ RUN VER_LLVM_DEFAULT=llvmorg-$(python tools/yaml_utils.py -f dependency_version.
     git submodule update --init --recursive
 
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
     LLVM_ROOT=$(pwd)/llvm-release && \
     mkdir -p llvm-project/build && \
     cd llvm-project/build && \
@@ -84,18 +80,26 @@ ENV PATH=$(pwd)/llvm-release/bin:$PATH
 ENV LD_LIBRARY_PATH=$(pwd)/llvm-release/lib:$LD_LIBRARY_PATH
 
 ### Clone Pytorch, Apply IPEX-specific patches (from this repo!)
-RUN VER_TORCH=$(python tools/yaml_utils.py -f dependency_version.yml -d pytorch -k commit) && \
+COPY --chown=ubuntu:ubuntu torch_patches ./torch_patches
+
+RUN . ./miniconda3/bin/activate && \
+    conda install -y make -c conda-forge && \
+    conda install -y sysroot_linux-64 && \
+    conda install -y gcc==11.4 gxx==11.4 cxx-compiler -c conda-forge
+
+RUN . ./miniconda3/bin/activate && \
+    export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH} && \
+    VER_TORCH=$(python tools/yaml_utils.py -f tools/dependency_version.yml -d pytorch -k commit) && \
     git clone https://github.com/pytorch/pytorch.git && \
     cd pytorch && \
     git checkout $VER_TORCH && \
     git submodule sync && \
     git submodule update --init --recursive && \
-    git apply ../intel-extension-for-pytorch/torch_patches/*.patch && \
-    echo ${VER_TORCH:1}a0 > version.txt
+    git apply ../torch_patches/*.patch && \
+    echo ${VER_TORCH:-1}a0 > version.txt
 
 ### Build Pytorch
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
     cd pytorch && \
     python -m pip install -r requirements.txt && \
     python -m pip install mkl-static mkl-include && \
@@ -105,24 +109,23 @@ RUN . ./miniconda3/bin/activate && \
     export USE_CUDA=0 && \
     python setup.py clean && \
     python setup.py bdist_wheel 2>&1 | tee build.log && \
+    python -m pip install dist/*.whl && \
     python -m pip uninstall -y mkl-static mkl-include
 
 ### Clone and build Pytorch audio and vision
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
-    VER_TORCHVISION=$(python tools/yaml_utils.py -f dependency_version.yml -d torchvision -k commit) && \
+    VER_TORCHVISION=$(python tools/yaml_utils.py -f tools/dependency_version.yml -d torchvision -k commit) && \
     git clone https://github.com/pytorch/vision.git && \
     cd vision && \
     git checkout $VER_TORCHVISION && \
     git submodule sync && \
     git submodule update --init --recursive && \
-    python -m pip install -r requirements.txt && \
     python setup.py clean && \
-    python setup.py bdist_wheel 2>&1 | tee build.log
+    python setup.py bdist_wheel 2>&1 | tee build.log && \
+    python -m pip install dist/*.whl
 
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
-    VER_TORCHAUDIO=$(python tools/yaml_utils.py -f dependency_version.yml -d torchaudio -k commit) && \
+    VER_TORCHAUDIO=$(python tools/yaml_utils.py -f tools/dependency_version.yml -d torchaudio -k commit) && \
     git clone https://github.com/pytorch/audio.git && \
     cd audio && \
     git checkout $VER_TORCHAUDIO && \
@@ -130,13 +133,13 @@ RUN . ./miniconda3/bin/activate && \
     git submodule update --init --recursive && \
     python -m pip install -r requirements.txt && \
     python setup.py clean && \
-    python setup.py bdist_wheel 2>&1 | tee build.log
-
+    python setup.py bdist_wheel 2>&1 | tee build.log && \
+    python -m pip install dist/*.whl
 
 ### Build IPEX
+COPY . ./intel-extension-for-pytorch
 ARG AOT_OPTIONS=pvc,ats-m150
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n compile_py310 python=3.10 && conda activate compile_py310 && \
     cd intel-extension-for-pytorch && \
     source /opt/intel/oneapi/compiler/latest/env/vars.sh && \
     source /opt/intel/oneapi/mkl/latest/env/vars.sh && \
@@ -148,6 +151,7 @@ RUN . ./miniconda3/bin/activate && \
     export IPEX_GPU_EXTRA_BUILD_OPTION="--gcc-install-dir=${CONDA_PREFIX}/lib/gcc/x86_64-conda-linux-gnu/12.3.0 -fuse-ld=lld -lrt -lpthread" && \
     python -m pip install -r requirements.txt && \
     python setup.py clean && \
+    export DEBUG=1 && \
     python setup.py bdist_wheel 2>&1 | tee build.log
 
 ### Capture wheel files for deployment

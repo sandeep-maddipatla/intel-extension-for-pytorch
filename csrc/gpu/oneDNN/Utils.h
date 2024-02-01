@@ -640,8 +640,8 @@ static inline int get_memory_layout_for_conv(
     return MEMORY_LAYOUT_FOR_CONV::ChannelsLast;
   }
 
-  // suggest channels_first
-  return MEMORY_LAYOUT_FOR_CONV::ChannelsFirst;
+  // suggest channels_last
+  return MEMORY_LAYOUT_FOR_CONV::ChannelsLast;
 }
 
 static inline at::MemoryFormat get_tensor_format_for_conv(

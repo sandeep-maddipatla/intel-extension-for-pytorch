@@ -15,6 +15,13 @@
 #include "Utils.h"
 
 #include <oneapi/dnnl/dnnl.hpp>
+#include <stdio.h>
+
+#define MSG(fmt, ...) do {                                                 \
+        fprintf(stdout, "IPEXConv: %s: Line %d (%s): " __FILE__, __LINE__, __FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
 
 using namespace dnnl;
 using namespace xpu::dpcpp;
@@ -209,7 +216,9 @@ static memory conv_get_expected_src_memory(
     dnnl::engine& engine,
     bool need_reorder = true) {
   memory src_m;
+  MSG("begin")
   if (src_usr_md != expected_src_md) {
+      MSG("if block:: need_reorder = %s" need_reorder ? "true" : "false");
     src_blocked =
         empty_opaque_tensor(expected_src_md, src.options(), c10::nullopt);
     src_m =
@@ -217,6 +226,7 @@ static memory conv_get_expected_src_memory(
     if (need_reorder)
       xpu::oneDNN::reorder(src, src_blocked);
   } else {
+      MSG("else block:: no reorder");
     src_m = dpcpp_onednn_memory(src_usr_md, engine, src.data_ptr());
     src_blocked = src;
   }
@@ -232,6 +242,8 @@ static memory conv_get_expected_wgh_memory(
     bool weight_cache_optimization,
     bool need_reorder = true) {
   memory wgh_m;
+  MSG("begin");
+  MSG("need_reorder = %s" need_reorder ? "true" : "false");
   if (wgh_usr_md != expected_wgh_md) {
     wgh_blocked =
         empty_opaque_tensor(expected_wgh_md, wgh.options(), c10::nullopt);
@@ -281,7 +293,11 @@ static memory conv_get_expected_dst_memory(
     dnnl::engine& engine,
     bool need_reorder = true) {
   memory dst_m;
+  MSG("begin");
+  MSG("need_reorder = %s" need_reorder ? "true" : "false");
+
   if (dst_usr_md != expected_dst_md) {
+    MSG("if block: need_reorder = %s" need_reorder ? "true" : "false");
     dst_blocked =
         empty_opaque_tensor(expected_dst_md, dst.options(), c10::nullopt);
     dst_m =
@@ -290,6 +306,7 @@ static memory conv_get_expected_dst_memory(
     if (need_reorder)
       xpu::oneDNN::reorder(dst, dst_blocked);
   } else {
+    MSG("else block: need_reorder = %s" need_reorder ? "true" : "false");
     dst_m = dpcpp_onednn_memory(dst_usr_md, engine, dst.data_ptr());
     dst_blocked = dst;
   }
@@ -307,6 +324,7 @@ static at::Tensor convolution(
     IntArrayRef dilation,
     int64_t groups,
     Attr& attr) {
+  MSG("begin");
   auto engine =
       GpuEngineManager::Instance().get_engine({kXPU, current_device()});
   auto strm = GpuStreamManager::Instance().get_stream();
@@ -316,6 +334,7 @@ static at::Tensor convolution(
   bool is_onednn_layout_suggested =
       memory_layout_for_conv == MEMORY_LAYOUT_FOR_CONV::Blocked;
 
+  MSG("memory_layout_for_conv=%d", memory_layout_for_conv);
   // create usr_md for tensors, and md for conv primitive
   memory::desc src_usr_md, wgh_usr_md, dst_usr_md, src_md, wgh_md, dst_md;
   std::tie(src_usr_md, wgh_usr_md, dst_usr_md, src_md, wgh_md, dst_md) =

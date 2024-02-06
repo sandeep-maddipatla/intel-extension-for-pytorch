@@ -71,7 +71,7 @@ RUN . ./miniconda3/bin/activate && \
     git submodule sync && \
     git submodule update --init --recursive && \
     git apply ../torch_patches/*.patch && \
-    echo ${VER_TORCH:1}a0 > version.txt
+    echo ${VER_TORCH}a0 | cut -c 2- > version.txt
 
 ### Build Pytorch
 RUN . ./miniconda3/bin/activate && \

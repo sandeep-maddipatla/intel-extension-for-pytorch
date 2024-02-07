@@ -160,6 +160,7 @@ RUN cd intel-extension-for-pytorch && \
     export LLVM_DIR=${USE_LLVM}/lib/cmake/llvm && \
     export DNNL_GRAPH_BUILD_COMPILER_BACKEND=1 && \
     export IPEX_GPU_EXTRA_BUILD_OPTION="--gcc-install-dir=${CONDA_PREFIX}/lib/gcc/x86_64-conda-linux-gnu/12.3.0 -fuse-ld=lld -lrt -lpthread" && \
+    export BUILD_WITH_CPU=OFF && \
     python -m pip install -r requirements.txt && \
     python setup.py clean && \
     python setup.py bdist_wheel 2>&1 | tee build.log
@@ -177,7 +178,6 @@ RUN bash /basekit_driver_install_helper.sh runtime && \
 COPY --from=dev --chown=ubuntu:ubuntu /home/ubuntu/wheels ./wheels
 COPY --from=dev --chown=ubuntu:ubuntu /home/ubuntu/intel-extension-for-pytorch/tools/get_libstdcpp_lib.sh .
 RUN . ./miniconda3/bin/activate && \
-    conda create -y -n py310 python=3.10 && conda activate py310 && \
     conda install -y libstdcxx-ng=12 libpng libjpeg-turbo -c conda-forge && \
     python -m pip install ./wheels/*.whl && \
     python -m pip cache purge && \

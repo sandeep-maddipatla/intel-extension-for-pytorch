@@ -161,6 +161,7 @@ RUN cd intel-extension-for-pytorch && \
     export DNNL_GRAPH_BUILD_COMPILER_BACKEND=1 && \
     export IPEX_GPU_EXTRA_BUILD_OPTION="--gcc-install-dir=${CONDA_PREFIX}/lib/gcc/x86_64-conda-linux-gnu/12.3.0 -fuse-ld=lld -lrt -lpthread" && \
     export BUILD_WITH_CPU=OFF && \
+    export REL_WITH_DEB_INFO=1 && \
     python -m pip install -r requirements.txt && \
     python setup.py clean && \
     python setup.py bdist_wheel 2>&1 | tee build.log

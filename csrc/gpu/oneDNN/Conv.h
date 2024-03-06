@@ -218,7 +218,7 @@ static memory conv_get_expected_src_memory(
   memory src_m;
   MSG("begin")
   if (src_usr_md != expected_src_md) {
-      MSG("if block:: need_reorder = %s" need_reorder ? "true" : "false");
+      MSG("if block:: need_reorder = %s", need_reorder ? "true" : "false");
     src_blocked =
         empty_opaque_tensor(expected_src_md, src.options(), c10::nullopt);
     src_m =
@@ -243,7 +243,7 @@ static memory conv_get_expected_wgh_memory(
     bool need_reorder = true) {
   memory wgh_m;
   MSG("begin");
-  MSG("need_reorder = %s" need_reorder ? "true" : "false");
+  MSG("need_reorder = %s", need_reorder ? "true" : "false");
   if (wgh_usr_md != expected_wgh_md) {
     wgh_blocked =
         empty_opaque_tensor(expected_wgh_md, wgh.options(), c10::nullopt);
@@ -294,10 +294,10 @@ static memory conv_get_expected_dst_memory(
     bool need_reorder = true) {
   memory dst_m;
   MSG("begin");
-  MSG("need_reorder = %s" need_reorder ? "true" : "false");
+  MSG("need_reorder = %s", need_reorder ? "true" : "false");
 
   if (dst_usr_md != expected_dst_md) {
-    MSG("if block: need_reorder = %s" need_reorder ? "true" : "false");
+    MSG("if block: need_reorder = %s", need_reorder ? "true" : "false");
     dst_blocked =
         empty_opaque_tensor(expected_dst_md, dst.options(), c10::nullopt);
     dst_m =
@@ -306,11 +306,32 @@ static memory conv_get_expected_dst_memory(
     if (need_reorder)
       xpu::oneDNN::reorder(dst, dst_blocked);
   } else {
-    MSG("else block: need_reorder = %s" need_reorder ? "true" : "false");
+      MSG("else block: need_reorder = %s", need_reorder ? "true" : "false");
     dst_m = dpcpp_onednn_memory(dst_usr_md, engine, dst.data_ptr());
     dst_blocked = dst;
   }
   return dst_m;
+}
+
+static void printMemoryDescriptor(memory::desc md, const char* md_tag)
+{
+    //DataType
+    memory::data_type md_dt = md.data_type();
+
+    //Dimensions
+    memory::dims md_dims = md.dims();
+    std::string dims_string = "{";
+    for (auto it = md_dims.begin(); it != md_dims.end(); it++)
+    {
+        dims_string += std::to_string(*it);
+        dims_string += std::string(",");
+    }
+    dims_string += "}";
+
+    //Format
+    dnnl_format_kind_t md_fmt_kind = md.data.format_kind;
+    MSG("%s: data_type=%d, dims = %s, format_kind = %d",
+        md_tag, md_dt, dims_string.c_str(), md_fmt_kind);
 }
 
 static at::Tensor convolution(
@@ -324,7 +345,8 @@ static at::Tensor convolution(
     IntArrayRef dilation,
     int64_t groups,
     Attr& attr) {
-  MSG("begin");
+  static int callId = 0;
+  MSG("begin .. callId = %d", callId++);
   auto engine =
       GpuEngineManager::Instance().get_engine({kXPU, current_device()});
   auto strm = GpuStreamManager::Instance().get_stream();
@@ -339,6 +361,12 @@ static at::Tensor convolution(
   memory::desc src_usr_md, wgh_usr_md, dst_usr_md, src_md, wgh_md, dst_md;
   std::tie(src_usr_md, wgh_usr_md, dst_usr_md, src_md, wgh_md, dst_md) =
       conv_get_md(src, wgh, dst, groups, memory_layout_for_conv);
+  printMemoryDescriptor(src_usr_md, "convolution_337_src_usr_md");
+  printMemoryDescriptor(wgh_usr_md, "convolution_337_wgh_usr_md");
+  printMemoryDescriptor(dst_usr_md, "convolution_337_dst_usr_md");
+  printMemoryDescriptor(src_md, "convolution_337_src_md");
+  printMemoryDescriptor(wgh_md, "convolution_337_wgh_md");
+  printMemoryDescriptor(dst_md, "convolution_337_dst_md");
 
   auto bia_fmt = memory::format_tag::x;
   auto bia_md = bia.defined()
@@ -391,6 +419,9 @@ static at::Tensor convolution(
     auto expected_src_md = conv_fwd_pd.src_desc();
     auto expected_wgh_md = conv_fwd_pd.weights_desc();
     auto expected_dst_md = conv_fwd_pd.dst_desc();
+    printMemoryDescriptor(expected_src_md, "convolution_337_expected_src_md");
+    printMemoryDescriptor(expected_wgh_md, "convolution_337_expected_wgh_md");
+    printMemoryDescriptor(expected_dst_md, "convolution_337_expected_dst_md");
     src_m = conv_get_expected_src_memory(
         src, src_blocked, src_usr_md, expected_src_md, engine);
     wgh_m = conv_get_expected_wgh_memory(

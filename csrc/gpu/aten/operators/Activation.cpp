@@ -24,6 +24,16 @@
 using namespace xpu::dpcpp::detail;
 using namespace xpu::dpcpp;
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                              \
+        fprintf(stdout, "IPEXConv: %s: Line %d (%s): " __FILE__, __LINE__, __FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
 namespace at {
 namespace AtenIpexTypeXPU {
 
@@ -398,6 +408,7 @@ Tensor& rrelu_with_noise_out(
     c10::optional<Generator> generator,
     Tensor& out) {
   at::native::resize_output(out, self.sizes());
+  MSG("");
   if (self.numel() == 0) {
     return out;
   }
@@ -412,10 +423,13 @@ Tensor& rrelu_with_noise_out(
               out, self, noise, lower, upper, generator);
         });
   } else {
+    MSG("");
     auto lower_tensor = lower.to<double>();
     auto upper_tensor = upper.to<double>();
     Scalar negative_slope = (lower_tensor + upper_tensor) / 2;
+    MSG("");
     at::leaky_relu_out(out, self, negative_slope);
+    MSG("");
   }
   return out;
 }
@@ -427,7 +441,9 @@ Tensor rrelu_with_noise(
     const Scalar& upper,
     bool training,
     c10::optional<Generator> generator) {
+    MSG("");
   Tensor output = at::empty_like(self, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+  MSG("");
   return rrelu_with_noise_out(
       self, noise, lower, upper, training, generator, output);
 }
@@ -439,6 +455,7 @@ Tensor& rrelu_with_noise_(
     const Scalar& upper,
     bool training,
     c10::optional<Generator> generator) {
+    MSG("");  
   return rrelu_with_noise_out(
       self, noise, lower, upper, training, generator, self);
 }

@@ -1,4 +1,4 @@
-#include <ATen/ATen.h>
+Q#include <ATen/ATen.h>
 #include <ATen/Context.h>
 
 #include <oneDNN/oneDNN.h>
@@ -8,6 +8,17 @@
 
 #include "Loops.h"
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                              \
+        fprintf(stdout, "IPEXConv: %s: Line %d (%s): " __FILE__, __LINE__, __FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
+
 namespace at {
 namespace AtenIpexTypeXPU {
 
@@ -16,6 +27,7 @@ Tensor& leaky_relu_out(
     const Scalar& negative_slope,
     Tensor& out) {
   auto iter = TensorIterator::unary_op(out, self);
+  MSG("");
 
   IPEX_DISPATCH_FLOATING_TYPES_AND2(
       at::ScalarType::Half,
@@ -24,6 +36,7 @@ Tensor& leaky_relu_out(
       "LeakyReLU",
       [&]() {
         auto negval = negative_slope.to<scalar_t>();
+        MSG();
         dpcpp_kernel_for_tensor_iter(iter, [=](scalar_t x) -> scalar_t {
           x = (x >= 0) ? x : x * negval;
           return x;

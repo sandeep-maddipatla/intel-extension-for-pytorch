@@ -329,7 +329,7 @@ static void printMemoryDescriptor(memory::desc md, const char* md_tag)
     dims_string += "}";
 
     //Format
-    memory::format_kind_md_fmt_kind = md.get_format_kind();
+    memory::format_kind md_fmt_kind = md.get_format_kind();
     MSG("%s: data_type=%d, dims = %s, format_kind = %d",
         md_tag, (int)md_dt, dims_string.c_str(), (int)md_fmt_kind);
 }

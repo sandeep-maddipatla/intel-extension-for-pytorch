@@ -316,10 +316,10 @@ static memory conv_get_expected_dst_memory(
 static void printMemoryDescriptor(memory::desc md, const char* md_tag)
 {
     //DataType
-    memory::data_type md_dt = md.data_type();
+    memory::data_type md_dt = md.get_data_type();
 
     //Dimensions
-    memory::dims md_dims = md.dims();
+    memory::dims md_dims = md.get_dims();
     std::string dims_string = "{";
     for (auto it = md_dims.begin(); it != md_dims.end(); it++)
     {
@@ -329,9 +329,9 @@ static void printMemoryDescriptor(memory::desc md, const char* md_tag)
     dims_string += "}";
 
     //Format
-    dnnl_format_kind_t md_fmt_kind = md.data.format_kind;
+    dnnl_format_kind_t md_fmt_kind = md.get().format_kind;
     MSG("%s: data_type=%d, dims = %s, format_kind = %d",
-        md_tag, md_dt, dims_string.c_str(), md_fmt_kind);
+        md_tag, (int)md_dt, dims_string.c_str(), (int)md_fmt_kind);
 }
 
 static at::Tensor convolution(

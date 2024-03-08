@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #define MSG(fmt, ...) do {                                                 \
-        fprintf(stdout, "IPEXConv: %s: Line %d (%s): " __FILE__, __LINE__, __FUNCTION__); \
+        fprintf(stdout, "IPEXConv: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         fprintf(stdout, fmt, ##__VA_ARGS__);                               \
         fprintf(stdout,"\n");                                           \
     } while(0);

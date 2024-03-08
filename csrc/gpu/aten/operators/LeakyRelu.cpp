@@ -36,7 +36,7 @@ Tensor& leaky_relu_out(
       "LeakyReLU",
       [&]() {
         auto negval = negative_slope.to<scalar_t>();
-        MSG();
+        MSG("");
         dpcpp_kernel_for_tensor_iter(iter, [=](scalar_t x) -> scalar_t {
           x = (x >= 0) ? x : x * negval;
           return x;

@@ -677,6 +677,15 @@ Attr get_onednn_conv_sum_attr(
 } // namespace impl
 
 using namespace impl;
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                              \
+        fprintf(stdout, "Conv: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
 
 Tensor _convolution_out(
     Tensor& output_r,
@@ -703,6 +712,9 @@ Tensor _convolution_out(
   bool is_onednn_layout_suggested =
       memory_layout_for_conv == MEMORY_LAYOUT_FOR_CONV::Blocked;
 
+  MSG("ndim =%d, memory_layout_for_conv=%d, is_onednn_layout_suggested=%d,
+      (int)ndim, (int)memory_layout_for_conv, (int)is_onednn_layout_suggested);
+
   Tensor input = input_r, weight = weight_r;
   // PyTorch does not support ChannelsLast1D case,
   // thus we need the transformation here
@@ -714,9 +726,12 @@ Tensor _convolution_out(
   at::MemoryFormat mfmt = is_channels_last_suggested
       ? get_cl_tag_by_ndim(input.ndimension())
       : at::MemoryFormat::Contiguous;
+  MSG("is_channels_last_suggested = %d", is_channels_last_suggested);
+  MSG("mfmt = %s", is_channels_last_suggested ? "cl_tag_by_ndim": "at::MemoryFormat::Contiguous");
+  MSG("input");
   input = contiguous_if_needed(input, mfmt);
-  weight = contiguous_if_needed(weight, mfmt);
-  auto bias = bias_r.defined() ? bias_r.contiguous() : bias_r;
+  MSG("weight");
+  weight = contiguous_if_needed(weight, mfmt);  auto bias = bias_r.defined() ? bias_r.contiguous() : bias_r;
 
   auto k = weight.ndimension();
   if (k == input.ndimension() + 1) {
@@ -729,6 +744,7 @@ Tensor _convolution_out(
   if (ndim == 3 && !is_onednn_layout_suggested) {
     // PyTorch does not support ChannelsLast1D case,
     // thus we need the transformation here
+      MSG("");
     params.stride = stride_.vec();
     params.padding = padding_.vec();
     params.dilation = dilation_.vec();
@@ -737,6 +753,7 @@ Tensor _convolution_out(
     params.groups = groups_;
     params.view1d_as_2d();
   } else {
+      MSG("");
     params.stride = expand_param_if_needed(stride_, "stride", dim);
     // PyTorch default Conv padding should be a single integer value
     // or a list of values to match the conv dimensions
@@ -754,8 +771,10 @@ Tensor _convolution_out(
 
   Tensor output;
   if (transposed_) {
+      MSG("");
     // create output and propagate memory format
     if (output_r.defined()) {
+        MSG("");
       output = contiguous_if_needed(output_r, mfmt);
     } else {
       auto dst_tz = deconv_dst_tz(
@@ -766,6 +785,7 @@ Tensor _convolution_out(
           params.dilation,
           params.output_padding,
           params.groups);
+      MSG("output: creating empty .. mfmt = %d", (int)mfmt));
       output = at::empty(dst_tz, input.options(), mfmt);
     }
     xpu::oneDNN::deconvolution(
@@ -780,6 +800,7 @@ Tensor _convolution_out(
         params.groups,
         attr);
   } else {
+    MSG("");
     // oneDNN supports padding the two sides of src with different values
     // the padding order should be front_top_left and back_bottom_right
     auto padding_front_top_left = params.padding;
@@ -799,6 +820,7 @@ Tensor _convolution_out(
 
     // create output and propagate memory format
     if (output_r.defined()) {
+        MSG("output");
       output = contiguous_if_needed(output_r, mfmt);
     } else {
       auto dst_tz = conv_dst_tz(
@@ -809,8 +831,10 @@ Tensor _convolution_out(
           padding_back_bottom_right,
           params.stride,
           params.dilation);
+      MSG("output: creating empty .. mfmt = %d", (int)mfmt));
       output = at::empty(dst_tz, input.options(), mfmt);
     }
+    MSG("xpu::oneDNN::convolution");
     output = xpu::oneDNN::convolution(
         output,
         input,
@@ -828,8 +852,10 @@ Tensor _convolution_out(
     output = view3d(output);
   }
   if (output_r.defined() && !output_r.is_same(output)) {
+      MSG("");
     output_r.copy_(output);
   } else {
+      MSG("");
     output_r = output;
   }
   return output_r;

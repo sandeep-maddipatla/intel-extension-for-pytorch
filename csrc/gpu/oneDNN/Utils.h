@@ -707,10 +707,21 @@ static inline bool using_channels_last_for_onednn_op(const at::Tensor& input) {
   return is_smf_channels_last(input);
 }
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                              \
+        fprintf(stdout, "Utils: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
 static inline Tensor contiguous_if_needed(
     const Tensor& t,
     at::MemoryFormat mfmt = at::MemoryFormat::Contiguous) {
   auto ctx = at::AtenIpexTypeXPU::DPCPPTensorContext::get_tensor_ctx(t);
+  MSG("ctx.is_plain() = %d", (int)ctx.is_plain());
   Tensor t_ = ctx.is_plain() ? t.contiguous(mfmt) : t;
   return t_;
 }

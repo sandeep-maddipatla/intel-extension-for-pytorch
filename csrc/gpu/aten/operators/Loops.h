@@ -17,6 +17,16 @@
 #define SIMD16 16
 #define SIMD32 32
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                              \
+        fprintf(stdout, "Loops: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
 using namespace xpu::dpcpp;
 
 namespace at {
@@ -256,6 +266,7 @@ static inline void launch_vectorized_kernel(
   TORCH_INTERNAL_ASSERT(N > 0 && N <= std::numeric_limits<int32_t>::max());
   auto& dpcpp_queue = dpcppGetCurrentQueue();
   auto group_size = dpcppMaxWorkItemsPerEU();
+  MSG("N=%d, vec_size=%d", N, vec_size);
 
 #define VEC_LOOPS_KERNEL(vec_size)                                    \
   {                                                                   \
@@ -505,15 +516,21 @@ void dpcpp_loops_kernel(TensorIteratorBase& iter, const func_t f) {
   bool latency_case =
       numel <= item_of_tile * 4; /* on tuning for different data types */
 
+  MSG("ntensors=%d, numel=%d, contiguous=%d, dynamic_casting=%d, item_of_tile =%d",
+      (int)ntensors, (int)numel, (int)contiguous, (int)dynamic_casting, (int)item_of_tile);
+
   if (!dynamic_casting) {
     if (contiguous) {
+        MSG("");
       int vec_size = at::native::Memory::can_vectorize_up_to_loop<func_t>(
           dpcppGetDeviceIdOfCurrentQueue(), data);
       auto input_offset_calculator = TrivialOffsetCalculator<traits::arity>();
       launch_vectorized_kernel(
           numel, f, data, input_offset_calculator, vec_size);
     } else {
+        MSG("");
       if constexpr (fast_mode) {
+              MSG("");
         int vec_size;
         if (!latency_case &&
             can_use_broadcast_vectorize<func_t>(iter, data, vec_size) &&
@@ -527,6 +544,7 @@ void dpcpp_loops_kernel(TensorIteratorBase& iter, const func_t f) {
       }
       auto offset_calc =
           make_offset_calculator<traits::arity + 1, signed_strides>(iter);
+      MSG("");
       launch_legacy_kernel(numel, [=](int idx) {
         auto offsets = offset_calc.get(idx);
         arg0_t* out = (arg0_t*)(data[0] + offsets[0]);
@@ -582,12 +600,14 @@ void dpcpp_loops_kernel(TensorIteratorBase& iter, const func_t f) {
     if constexpr (fast_mode)
 #endif
     {
+        MSG("");  
       if (!has_double_arg<func_t>(iter)) {
         HANDLE_DYNAMIC_CAST(true)
         return;
       }
     }
 
+    MSG("");
     HANDLE_DYNAMIC_CAST(false)
 
 #undef HANDLE_DYNAMIC_CAST

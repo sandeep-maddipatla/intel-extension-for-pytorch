@@ -15,6 +15,17 @@ using namespace dnnl;
 using namespace xpu::dpcpp;
 using namespace at::AtenIpexTypeXPU;
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                              \
+        fprintf(stdout, "reorder: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
+
 namespace xpu {
 namespace oneDNN {
 
@@ -107,10 +118,12 @@ static inline void reorder(
     Tensor& dst,
     const ReorderAttr& rattr = ReorderAttr()) {
   RECORD_FUNCTION("dnnl_reorder", std::vector<c10::IValue>({src}));
-
+  MSG("begin");
+  MSG("dst.is_same(src) = %d", (int)dst.is_same(src));
   if (dst.is_same(src))
     return;
 
+  MSG("reorder_no_early_exit");
   auto engine =
       GpuEngineManager::Instance().get_engine({kXPU, current_device()});
   auto strm = GpuStreamManager::Instance().get_stream();

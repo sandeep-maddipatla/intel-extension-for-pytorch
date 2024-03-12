@@ -348,6 +348,7 @@ class Attr {
     // [1, 1, 1, 1], tensor broadcast
     // [1, C, 1, 1], channel broadcast
     // [dst.shape], no broadcast and eltwise-wise binary operations on dst
+      MSG("");
     auto engine =
         GpuEngineManager::Instance().get_engine({kXPU, current_device()});
     for (int i = 0; i < ops_params_.size(); ++i) {
@@ -366,6 +367,7 @@ class Attr {
               empty_opaque_tensor(expected_md, binary.options(), c10::nullopt);
           binary_m = dpcpp_onednn_memory(
               expected_md, engine, ops_params_[i].expected_binary_.data_ptr());
+          MSG("issue reorder");
           xpu::oneDNN::reorder(binary, ops_params_[i].expected_binary_);
         } else {
           binary_m = dpcpp_onednn_memory(md, engine, binary.data_ptr());

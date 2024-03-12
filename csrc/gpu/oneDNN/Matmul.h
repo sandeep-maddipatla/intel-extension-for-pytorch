@@ -326,6 +326,8 @@ static inline void matmul(
   if (m1_usr_m.get_desc() != expected_m1_md) {
     m1_ = empty_opaque_tensor(expected_m1_md, m1.options(), c10::nullopt);
     m1_m = dpcpp_onednn_memory(expected_m1_md, engine, m1_.data_ptr());
+        MSG("issue reorder");
+
     xpu::oneDNN::reorder(m1, m1_);
   }
 
@@ -333,6 +335,7 @@ static inline void matmul(
     m2_ = empty_opaque_tensor(expected_m2_md, m2.options(), c10::nullopt);
     m2_m = dpcpp_onednn_memory(expected_m2_md, engine, m2_.data_ptr());
     auto m2_onednn_matmul_shape_compatible = m2_trans ? m2 : m2.t();
+    MSG("issue reorder");
     xpu::oneDNN::reorder(m2_onednn_matmul_shape_compatible, m2_);
 
     if (weight_cache_optimization) {
@@ -351,8 +354,10 @@ static inline void matmul(
   if (dst_usr_m.get_desc() != expected_dst_md) {
     dst_ = empty_opaque_tensor(expected_dst_md, dst.options(), c10::nullopt);
     dst_m = dpcpp_onednn_memory(expected_dst_md, engine, dst_.data_ptr());
-    if (attr.with_sum())
+    if (attr.with_sum()){
+            MSG("issue reorder");
       xpu::oneDNN::reorder(dst, dst_);
+    }
   }
   if (attr.with_binary())
     attr.construct_post_binary(matmul_pd, po, args);

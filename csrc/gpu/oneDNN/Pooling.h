@@ -706,6 +706,9 @@ static at::Tensor pooling_backward(
         at::TensorOptions(at::kXPU).dtype(at::kInt),
         c10::nullopt);
     idx_m = dpcpp_onednn_memory(expexted_idx_md, engine, idx_opt.data_ptr());
+
+    MSG("issue reorder");
+
     xpu::oneDNN::reorder(idx_usr, idx_opt);
   }
 

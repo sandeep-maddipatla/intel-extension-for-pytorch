@@ -26,6 +26,7 @@ static inline void eltwise(
   Device curDevice = Device(kXPU, current_device());
   auto engine = GpuEngineManager::Instance().get_engine(curDevice);
 
+  MSG("begin");
   std::vector<int64_t> dims;
   for (size_t i = 0; i < src.dim(); i++) {
     dims.push_back(src.size(i));
@@ -219,6 +220,7 @@ static inline void eltwise_backward(
       diff_dst_memory =
           dpcpp_onednn_memory(expected_dst_md, engine, diff_dst__.data_ptr());
       diff_dst_md = expected_dst_md;
+      MSG("issue reorder");
       xpu::oneDNN::reorder(diff_dst, diff_dst__);
     }
   }

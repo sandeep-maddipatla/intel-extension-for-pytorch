@@ -29,6 +29,8 @@ static inline Tensor bin(
     const Tensor& t1,
     const Tensor& t2,
     const Tensor t3 = at::Tensor()) {
+
+        MSG("begin");
   auto engine =
       GpuEngineManager::Instance().get_engine({kXPU, current_device()});
   auto strm = GpuStreamManager::Instance().get_stream();
@@ -81,6 +83,7 @@ static inline Tensor bin(
   if (md1 != tar_md) {
     _t1 = empty_opaque_tensor(tar_md, t1.options(), c10::nullopt);
     m1 = dpcpp_onednn_memory(tar_md, engine, _t1.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(t1, _t1);
     md1 = tar_md;
   }
@@ -89,6 +92,7 @@ static inline Tensor bin(
   if (md2 != tar_md && t1.sizes() == t2.sizes()) {
     _t2 = empty_opaque_tensor(tar_md, t2.options(), c10::nullopt);
     m2 = dpcpp_onednn_memory(tar_md, engine, _t2.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(t2, _t2);
     md2 = tar_md;
   }

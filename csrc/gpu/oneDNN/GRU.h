@@ -32,6 +32,7 @@ static inline Tensor gru_forward(
     bool has_bias,
     bool train,
     bool bidirectional) {
+    MSG("");
   Device curDevice = Device(kXPU, current_device());
   auto engine = GpuEngineManager::Instance().get_engine(curDevice);
   auto strm = GpuStreamManager::Instance().get_stream();
@@ -137,6 +138,7 @@ static inline Tensor gru_forward(
         expected_weights_layer_md, weight_layer.options(), c10::nullopt);
     weights_layer_memory = dpcpp_onednn_memory(
         expected_weights_layer_md, engine, weight_layer_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(new_weight_layer, weight_layer_);
   }
 
@@ -147,6 +149,7 @@ static inline Tensor gru_forward(
         expected_weights_iter_md, weight_iter.options(), c10::nullopt);
     weights_iter_memory = dpcpp_onednn_memory(
         expected_weights_iter_md, engine, weight_iter_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(new_weight_iter, weight_iter_);
   }
 
@@ -156,6 +159,7 @@ static inline Tensor gru_forward(
     bias_ = empty_opaque_tensor(expected_bias_md, bias.options(), c10::nullopt);
     bias_memory =
         dpcpp_onednn_memory(expected_bias_md, engine, bias_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(new_bias, bias_);
   }
 
@@ -166,6 +170,7 @@ static inline Tensor gru_forward(
         expected_src_layer_md, src_layer.options(), c10::nullopt);
     src_layer_memory = dpcpp_onednn_memory(
         expected_src_layer_md, engine, src_layer_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(src_layer, src_layer_);
   }
 
@@ -176,6 +181,7 @@ static inline Tensor gru_forward(
         expected_src_iter_md, src_iter.options(), c10::nullopt);
     src_iter_memory =
         dpcpp_onednn_memory(expected_src_iter_md, engine, src_iter_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(new_src_iter, src_iter_);
   }
 
@@ -186,6 +192,7 @@ static inline Tensor gru_forward(
         expected_dst_layer_md, dst_layer.options(), c10::nullopt);
     dst_layer_memory = dpcpp_onednn_memory(
         expected_dst_layer_md, engine, dst_layer_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(dst_layer, dst_layer_);
   }
 
@@ -196,6 +203,7 @@ static inline Tensor gru_forward(
         expected_dst_iter_md, dst_iter.options(), c10::nullopt);
     dst_iter_memory =
         dpcpp_onednn_memory(expected_dst_iter_md, engine, dst_iter_.data_ptr());
+    MSG("issue reorder");
     xpu::oneDNN::reorder(dst_iter, dst_iter_);
   }
 
@@ -231,10 +239,12 @@ static inline Tensor gru_forward(
   DPCPP_ONEDNN_EXEC(gru_forward_p, strm, args);
 
   if (dst_layer_memory != dst_layer_usr_memory) {
+    MSG("issue reorder");
     xpu::oneDNN::reorder(dst_layer_, dst_layer);
   }
 
   if (dst_iter_memory != dst_iter_usr_memory) {
+    MSG("issue reorder");
     xpu::oneDNN::reorder(dst_iter_, dst_iter);
   }
   return workspace;

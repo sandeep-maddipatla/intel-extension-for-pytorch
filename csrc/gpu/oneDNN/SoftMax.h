@@ -54,6 +54,7 @@ static Tensor softmax(
     const int64_t dim,
     const bool half_to_float,
     Tensor& output) {
+    MSG("");
   TORCH_CHECK(input.dim() <= 4 && input.dim() >= 1, "Input Dims out of range");
 
   Device curDevice = Device(at::kXPU, current_device());
@@ -165,6 +166,8 @@ static Tensor softmax_backward(
     grad_memory = dpcpp_onednn_memory(
         softmax_forward_pd.dst_desc(), engine, grad_opt.data_ptr());
     grad_md = softmax_forward_pd.dst_desc();
+    MSG("issue reorder");
+
     xpu::oneDNN::reorder(grad, grad_opt);
   }
 

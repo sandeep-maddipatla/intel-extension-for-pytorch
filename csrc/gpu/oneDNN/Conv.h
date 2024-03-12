@@ -223,8 +223,10 @@ static memory conv_get_expected_src_memory(
         empty_opaque_tensor(expected_src_md, src.options(), c10::nullopt);
     src_m =
         dpcpp_onednn_memory(expected_src_md, engine, src_blocked.data_ptr());
-    if (need_reorder)
+    if (need_reorder) {
+              MSG("issue reorder");
       xpu::oneDNN::reorder(src, src_blocked);
+    }
   } else {
       MSG("else block:: no reorder");
     src_m = dpcpp_onednn_memory(src_usr_md, engine, src.data_ptr());
@@ -249,8 +251,9 @@ static memory conv_get_expected_wgh_memory(
         empty_opaque_tensor(expected_wgh_md, wgh.options(), c10::nullopt);
     wgh_m =
         dpcpp_onednn_memory(expected_wgh_md, engine, wgh_blocked.data_ptr());
-
+    MSG("");
     if (need_reorder) {
+        MSG("");
       auto reshaped_wgh = wgh;
       // reshape for group convolution weight
       if (wgh_blocked.ndimension() > wgh.ndimension()) {
@@ -269,9 +272,11 @@ static memory conv_get_expected_wgh_memory(
             compatible_groups_conv_strides(wgh, wgh_blocked.sizes().vec()),
             c10::nullopt);
       }
+      MSG("issue reorder");
       xpu::oneDNN::reorder(reshaped_wgh, wgh_blocked);
 
       if (weight_cache_optimization) {
+          MSG("");
         auto wgh_opt_ctx = DPCPPTensorContext::release_tensor_ctx(wgh_blocked);
         wgh_opt_ctx.set_aten_meta(
             {reshaped_wgh.sizes().vec(), reshaped_wgh.strides().vec()});
@@ -303,8 +308,10 @@ static memory conv_get_expected_dst_memory(
     dst_m =
         dpcpp_onednn_memory(expected_dst_md, engine, dst_blocked.data_ptr());
 
-    if (need_reorder)
+    if (need_reorder) {
+        MSG("issue reorder");
       xpu::oneDNN::reorder(dst, dst_blocked);
+    }
   } else {
       MSG("else block: need_reorder = %s", need_reorder ? "true" : "false");
     dst_m = dpcpp_onednn_memory(dst_usr_md, engine, dst.data_ptr());
@@ -412,6 +419,8 @@ static at::Tensor convolution(
     return memory_layout_for_conv == MEMORY_LAYOUT_FOR_CONV::Blocked &&
         !at::GradMode::is_enabled();
   }();
+
+  MSG("weight_cache_optimization = %d", (int)weight_cache_optimization);
 
   memory src_m, wgh_m, dst_m, bia_m;
   Tensor src_blocked, wgh_blocked, dst_blocked = dst;

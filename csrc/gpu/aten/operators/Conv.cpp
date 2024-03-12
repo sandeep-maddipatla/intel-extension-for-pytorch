@@ -712,7 +712,7 @@ Tensor _convolution_out(
   bool is_onednn_layout_suggested =
       memory_layout_for_conv == MEMORY_LAYOUT_FOR_CONV::Blocked;
 
-  MSG("ndim =%d, memory_layout_for_conv=%d, is_onednn_layout_suggested=%d,
+  MSG("ndim =%d, memory_layout_for_conv=%d, is_onednn_layout_suggested=%d",
       (int)ndim, (int)memory_layout_for_conv, (int)is_onednn_layout_suggested);
 
   Tensor input = input_r, weight = weight_r;
@@ -785,7 +785,7 @@ Tensor _convolution_out(
           params.dilation,
           params.output_padding,
           params.groups);
-      MSG("output: creating empty .. mfmt = %d", (int)mfmt));
+      MSG("output: creating empty .. mfmt = %d", (int)mfmt);
       output = at::empty(dst_tz, input.options(), mfmt);
     }
     xpu::oneDNN::deconvolution(
@@ -831,7 +831,7 @@ Tensor _convolution_out(
           padding_back_bottom_right,
           params.stride,
           params.dilation);
-      MSG("output: creating empty .. mfmt = %d", (int)mfmt));
+      MSG("output: creating empty .. mfmt = %d", (int)mfmt);
       output = at::empty(dst_tz, input.options(), mfmt);
     }
     MSG("xpu::oneDNN::convolution");

@@ -186,9 +186,9 @@ Tensor empty_opaque_qtensor(
 }
 
 inline bool need_to_plain(const Tensor& tensor) {
-    MSG("tensor.defined()=%d, DPCPPTensorConvertor::is_opaque_tensor(tensor)=%d, tensor.options().backend()=%d",
-        (int)tensor.defined(), (int)DPCPPTensorConvertor::is_opaque_tensor(tensor), (int)tensor.options().backend());
-    MSG("tensor.is_sparse()=%d, tensor_ctx.is_plain()=%d", (int)tensor.is_sparse(), (int)tensor_ctx.is_plain());
+    MSG("tensor.defined()=%d, DPCPPTensorConvertor::is_opaque_tensor(tensor)=%d, tensor.options().backend()=%d, tensor.is_sparse()=%d",
+        (int)tensor.defined(), (int)DPCPPTensorConvertor::is_opaque_tensor(tensor), (int)tensor.options().backend(),
+        (int)tensor.is_sparse());
 
   if (!tensor.defined())
     return false;
@@ -202,6 +202,7 @@ inline bool need_to_plain(const Tensor& tensor) {
     return false;
 
   auto tensor_ctx = DPCPPTensorContext::get_tensor_ctx(tensor);
+    MSG("tensor.is_sparse()=%d, tensor_ctx.is_plain()=%d", (int)tensor.is_sparse(), (int)tensor_ctx.is_plain());
   if (tensor_ctx.is_plain())
     return false;
 

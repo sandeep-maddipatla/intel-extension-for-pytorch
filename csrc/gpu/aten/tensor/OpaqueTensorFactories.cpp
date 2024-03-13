@@ -6,6 +6,16 @@
 #include <tensor/OpaqueTensorFactories.h>
 #include <torch/library.h>
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                                 \
+        fprintf(stdout, "OTF: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
 namespace at {
 namespace AtenIpexTypeXPU {
 
@@ -84,6 +94,8 @@ Tensor empty_opaque_tensor(
     c10::optional<MemoryFormat> optional_memory_format) {
   auto* allocator = xpu::dpcpp::getDeviceAllocator();
   auto dtype = options.dtype();
+
+  MSG("");
 
   at::detail::check_size_nonnegative(meta.get_dims());
 
@@ -174,6 +186,10 @@ Tensor empty_opaque_qtensor(
 }
 
 inline bool need_to_plain(const Tensor& tensor) {
+    MSG("tensor.defined()=%d, DPCPPTensorConvertor::is_opaque_tensor(tensor)=%d, tensor.options().backend()=%d",
+        (int)tensor.defined(), (int)DPCPPTensorConvertor::is_opaque_tensor(tensor), (int)tensor.options().backend());
+    MSG("tensor.is_sparse()=%d, tensor_ctx.is_plain()=%d", (int)tensor.is_sparse(), (int)tensor_ctx.is_plain());
+
   if (!tensor.defined())
     return false;
 
@@ -197,17 +213,20 @@ Tensor to_plain_if_needed(const Tensor& tensor) {
     return tensor;
   const OptionalDeviceGuard device_guard(device_of(tensor));
 
+  MSG("");
   return DPCPPTensorConvertor::to_plain(tensor);
 }
 
 Tensor to_plain(const Tensor& tensor) {
+  MSG("");
   return to_plain_if_needed(tensor);
 }
 
 Tensor to_plain_if_needed_(const Tensor& tensor) {
+    MSG("");
   if (!need_to_plain(tensor))
     return tensor;
-
+  MSG("");
   auto plain = to_plain_if_needed(tensor);
   auto plain_ctx = (DPCPPTensorContext*)plain.unsafeGetTensorImpl()
                        ->storage()
@@ -220,6 +239,7 @@ Tensor to_plain_if_needed_(const Tensor& tensor) {
 
 std::vector<Tensor> to_plain_if_needed(TensorList tensors) {
   std::vector<Tensor> _tensors;
+  MSG("");
   for (auto tensor : tensors) {
     _tensors.push_back(to_plain_if_needed(tensor));
   }
@@ -228,6 +248,7 @@ std::vector<Tensor> to_plain_if_needed(TensorList tensors) {
 
 std::vector<Tensor> to_plain_if_needed(MaterializedITensorListRef tensors) {
   std::vector<Tensor> _tensors;
+  MSG("");
   for (auto tensor : tensors) {
     _tensors.push_back(to_plain_if_needed(tensor.get()));
   }

@@ -26,14 +26,17 @@ static inline Tensor& unary_out_with_onednn_and_loops(
   bool is_out_defined = out.defined();
   bool use_onednn_path =
       if_enable_onednn_path && xpu::oneDNN::eltwise_forward_valid(out, self);
-
+  MSG("");
   Tensor self_;
   if (use_onednn_path) {
     self_ = self;
   } else {
+      MSG("");
     self_ = at::AtenIpexTypeXPU::to_plain_if_needed(self);
-    if (is_out_defined)
+    if (is_out_defined) {
+        MSG("");
       out = at::AtenIpexTypeXPU::to_plain_if_needed_(out);
+    }
   }
 
   auto iter = iter_creator(out, self_);
@@ -42,8 +45,10 @@ static inline Tensor& unary_out_with_onednn_and_loops(
     xpu::oneDNN::eltwise<algorithm_t>(out, self_, alpha, beta);
   } else {
     fn(iter);
-    if (!is_out_defined)
+    if (!is_out_defined) {
+        MSG("");
       out = iter.output();
+    }
   }
 
   return out;
@@ -63,15 +68,19 @@ static inline Tensor& unary_out_with_onednn_and_loops_bw(
   bool use_onednn_path = if_enable_onednn_path &&
       xpu::oneDNN::eltwise_backward_valid(out, self, other);
 
+  MSG("");
   Tensor self_, other_;
   if (use_onednn_path) {
     self_ = self;
     other_ = other;
   } else {
+      MSG("");
     self_ = at::AtenIpexTypeXPU::to_plain_if_needed(self);
     other_ = at::AtenIpexTypeXPU::to_plain_if_needed(other);
-    if (is_out_defined)
+    if (is_out_defined) {
+        MSG("");
       out = at::AtenIpexTypeXPU::to_plain_if_needed_(out);
+    }
   }
 
   auto iter = iter_creator(out, self_, other_);
@@ -99,11 +108,13 @@ static inline Tensor& binary_out_template(
   bool use_onednn_path = if_enable_onednn_path &&
       xpu::oneDNN::binary_forward_valid(out, self, other);
 
+  MSG("");
   Tensor self_, other_;
   if (use_onednn_path) {
     self_ = self;
     other_ = other;
   } else {
+      MSG("");
     self_ = at::AtenIpexTypeXPU::to_plain_if_needed(self);
     other_ = at::AtenIpexTypeXPU::to_plain_if_needed(other);
     if (is_out_defined)
@@ -113,6 +124,7 @@ static inline Tensor& binary_out_template(
   auto iter = iter_creator(out, self_, other_);
 
   if (use_onednn_path) {
+      MSG("");
     xpu::oneDNN::bin<algorithm_t>(out, self_, other_);
   } else {
     fn(iter);

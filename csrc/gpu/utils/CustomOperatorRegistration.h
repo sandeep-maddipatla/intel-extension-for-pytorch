@@ -7,6 +7,16 @@
 #include "aten/tensor/OpaqueTensorFactories.h"
 #include "torch/library.h"
 
+#ifdef MSG
+#undef MSG
+#endif
+
+#define MSG(fmt, ...) do {                                                 \
+        fprintf(stdout, "CustomOpsReg: %s: Line %d (%s): ", __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+        fprintf(stdout, fmt, ##__VA_ARGS__);                               \
+        fprintf(stdout,"\n");                                           \
+    } while(0);
+
 namespace at {
 namespace AtenIpexTypeXPU {
 namespace {
@@ -87,6 +97,7 @@ struct IpexFunctionWarpper_<
   static Ret call(Args... args) {
     TypeSelector<at::Tensor, sizeof...(args)> selector;
     selector.extract_type(args...);
+    MSG("to_plain=%d", (int)to_plain);
     const OptionalDeviceGuard dev_guard(device_of(selector.retrive_types()));
     if constexpr (to_plain) {
       std::for_each(
@@ -136,7 +147,7 @@ different signatures, function schema and signature should be explicitly
 specified in this scenario. Here's one example: For two overload function
 mul_add, here is its declaration:
 
-==========================================================================
+=========================================================================
   Tensor mul_add(Tensor tensor1, Tensor mul, Tensor add, Scalar scale);
 --------------------------------------------------------------------------
   Tensor mul_add(Tensor tensor1, Scalar mul, Tensor add, Scalar scale);

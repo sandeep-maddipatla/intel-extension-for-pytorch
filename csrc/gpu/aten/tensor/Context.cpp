@@ -88,9 +88,11 @@ at::Tensor DPCPPTensorConvertor::to_plain(const at::Tensor& from_original) {
 }
 
 at::Tensor DPCPPTensorConvertor::to_plain_(at::Tensor& from) {
+  MSG("begin");
   if (!is_opaque_tensor(from))
     return from;
 
+  MSG("");
   auto to = to_plain(from);
 
   auto ctx = DPCPPTensorContext::get_tensor_ctx(to);

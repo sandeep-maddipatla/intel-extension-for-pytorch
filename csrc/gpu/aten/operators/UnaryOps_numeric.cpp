@@ -37,6 +37,7 @@ static inline Tensor& unary_op_impl_with_complex_to_float_out(
         result.scalar_type());
 
     // Runs the function complex->complex, as TensorIterator expects
+    MSG("");
     Tensor complex_result = at::empty({0}, self.options());
     auto self_ = at::AtenIpexTypeXPU::to_plain_if_needed(self);
     auto iter = TensorIterator::unary_op(complex_result, self_);
@@ -49,6 +50,7 @@ static inline Tensor& unary_op_impl_with_complex_to_float_out(
   }
 
   if (promotes_integer_to_float) {
+      MSG("");
     result = at::AtenIpexTypeXPU::to_plain_if_needed_(result);
     auto self_ = at::AtenIpexTypeXPU::to_plain_if_needed(self);
     auto iter = TensorIterator::unary_float_op(result, self_);
